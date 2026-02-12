@@ -1,4 +1,4 @@
-<h1>Location based microblogging social network.</h1>
+<h1>Location based microblogging social network</h1>
 
 Borrowing a bit from X (the artist formerly known as Twitter): short character limit, replies, likes, reblog function (e.g., retweet).
 However, location based means that a user can only see & interact with posts from other users within a specific predefined radius.
