@@ -1,9 +1,9 @@
-Location based microblogging social network.<br>
+<h1>Location based microblogging social network.</h1>
 
-Borrowing a bit from Twitter: short character limit, replies, likes, reblog function (e.g., retweet)
+Borrowing a bit from X (the artist formerly known as Twitter): short character limit, replies, likes, reblog function (e.g., retweet).
 However, location based means that a user can only see & interact with posts from other users within a specific predefined radius.
 
-Features
+<h3>Features</h3>
 <ul>
 <li>Posts are not anonymous</li>
   
@@ -29,10 +29,10 @@ Features
 </ul>
 
 
-Similar to X, yes. Different from X (the artist formerly known as Twitter) in character count (as of 2017) and location based services.
-Target Audience: young adults, primarily. Why -> To share their thoughts and feelings in an more interactive. You have to be there to talk about it.
+Similar to X, yes. Different from X in character count (as of 2017) and location based services.
+Target Audience: young adults, primarily. Why -> To share their thoughts and feelings in an interactive way. You have to be there to talk about it.
 
-Sprints
+<h3>Sprints</h3>
 <ol>
 <li>Establish webpage architecture. Home page, login page, user page. Theme kept minimal across all pages for sake of functionality.</li>
 
