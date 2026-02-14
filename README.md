@@ -37,7 +37,7 @@ However, location based means that a user can only see & interact with posts fro
 
 Similar to X, yes. Different from X in character count (as of 2017) and location based services.
 Target Audience: young adults, primarily. 
-Why? To share their thoughts and feelings in an interactive way. You have to be there to talk about it.
+Why? To share their thoughts and feelings in an interactive way. You have to <i>be there</i> to talk about it.
 
 <h3>Sprints</h3>
 <ol>
