@@ -1,11 +1,13 @@
 <h1>Location based microblogging social network</h1>
 
+This application will allow users to share text posts to a public feed of posts that are tied to a specific region. This region is set to a predefined radius and only users in that radius can see the posts that were posted in that region. Users will be able to interact with other users' posts by replying to it, "liking" it, or reblogged it themselves. All user post history will be shown on that user's profile page, regardless of their location.
+
 Borrowing a bit from X (the artist formerly known as Twitter): short character limit, replies, likes, reblog function (e.g., retweet).
 However, location based means that a user can only see & interact with posts from other users within a specific predefined radius.
 
 <h3>Features</h3>
 <ul>
-<li>Posts are not anonymous</li>
+<li>Posts are not anonymous, they are tied to a username which is in turn tied to an email</li>
   
 <li>User profile
 	<ul>
