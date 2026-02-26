@@ -102,7 +102,7 @@ button {
     border: 0;
 }
 
-/*for login page*/
+/*for login & register page*/
 .auth-page {
     display: flex;
     justify-content: center;
