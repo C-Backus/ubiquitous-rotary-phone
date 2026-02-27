@@ -41,7 +41,7 @@ Why? To share their thoughts and feelings in an interactive way. <i>You have to 
 
 <h3>Sprints</h3>
 <ol>
-<li>Establish webpage architecture. Home page, login page, user page. Theme kept minimal across all pages for sake of functionality. :white_check_mark:</li>
+<li>Establish webpage architecture. Home page, login page, user page. Theme kept minimal across all pages for sake of functionality. \u2705</li>
 
 <li>Logging in and logging out. GPS services</li>
 
