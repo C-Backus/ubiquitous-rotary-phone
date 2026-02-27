@@ -1,1 +1,10 @@
+The goals for the first sprint were essentially building the page architecture. Originally, I had only thought of the home page, the login page, and the user profile page. 
+This scope expanded to include a register page (similar to the login page, but obviously where a new user registers an account). Naturally what came with these html pages 
+was their shared css style document. The html pages are properly linked to each other, which was an implicit goal of this sprint based on the structure of the application 
+outlined in my proposal. All goals were met for this sprint.<br>
+
+Next sprint will focus primarily on facilitating the functions of a user logging in and logging out. This includes user account creation, password storage, and password 
+validation. I am hopeful to also begin tackling GPS services for the post architecture and post interaction. <br>
+
+Link to deployed application: https://myconet.chickenkiller.com/
 
