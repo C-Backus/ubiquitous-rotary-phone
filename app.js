@@ -8,7 +8,7 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: 'myconet-secret', //needs to be longer more random string
+	secret: '', //needs to be longer more random string
 	resave: false, //should session be saved again on every request 
 	saveUnititialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
