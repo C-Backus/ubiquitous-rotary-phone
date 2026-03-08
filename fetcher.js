@@ -36,6 +36,7 @@ if (registerForm) {
 });
 }
 
+//login page form submission
 const loginForm = document.getElementById("loginForm");
 if (loginForm) {
     loginForm.addEventListener("submit", async function(event) {
