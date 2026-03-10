@@ -17,6 +17,29 @@ app.use(session({
 //user storage
 let users = [];
 
+//Protect profile and index pages
+app.get("/profile.html", (req, res) => {
+	if (!req.session.user) {
+		return res.redirect("/login.html");
+	}
+	res.sendFile("/var/www/myconet-html/profile.html");
+});
+
+app.get("/", (req, res) => {
+        if (!req.session.user) {
+                return res.redirect("/login.html");
+        }
+        res.sendFile("/var/www/myconet-html/index.html");
+});
+
+app.get("/index.html", (req, res) => {
+        if (!req.session.user) {
+                return res.redirect("/login.html");
+        }
+        res.sendFile("/var/www/myconet-html/index.html");
+});
+
+
 //register
 app.post("/api/register", async (req, res) => {
 
@@ -100,23 +123,11 @@ app.post("/api/logout", (req, res) => {
 		return res.status(500).json({ message: "Logout failed" });
 	}
 
+	res.clearCookie("connect.sid");
 	res.json({ message: "Logged out" });
 
 	});
 
-});
-
-//check if user logged in (for protecting index.html)
-app.get("/api/session", (req, res) => {
-
-	if (!req.session.user) {
-		return res.status(401).json({ message: "Please log in"});
-	}
-
-	res.json({
-		message: "Logged in",
-		user: req.session.user
-	});
 });
 
 //start server
