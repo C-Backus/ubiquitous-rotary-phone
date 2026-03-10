@@ -8,7 +8,7 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: '', //needs to be longer more random string
+	secret: 'myconet-secret', //needs to be longer more random string
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
@@ -106,7 +106,20 @@ app.post("/api/logout", (req, res) => {
 
 });
 
+//check if user logged in (for protecting index.html)
+app.get("/api/session", (req, res) => {
+
+	if (!req.session.user) {
+		return res.status(401).json({ message: "Please log in"});
+	}
+
+	res.json({
+		message: "Logged in",
+		user: req.session.user
+	});
+});
+
 //start server
 app.listen(3001, '0.0.0.0', () => {
-  console.log("MycoNet API running on port 3001");
+	console.log("MycoNet API running on port 3001");
 });
