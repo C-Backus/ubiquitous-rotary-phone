@@ -47,6 +47,9 @@ Why? To share their thoughts and feelings in an interactive way. <i>You have to 
 <b>Sprint complete.</b></li>
 
 <li>Logging in and logging out. GPS services</li>
+<i>Index and profile pages protected from unauthorized users.</i>
+
+<b>Sprint complete.</b></li>
 
 <li>Finish GPS services. Establish posting architecture</li>
 
