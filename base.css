@@ -51,7 +51,7 @@ button {
     cursor: pointer;
 }
 
-profile-pic {
+.profile-pic {
     width: 40px;
     height: 40px;
     border-radius: 50%;

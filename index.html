@@ -20,7 +20,7 @@
     </nav>
 
     <p class="location-status">
-        &#128205 Within 5 mile radius
+        &#128205; Within 5 mile radius
     </p>
 </header>
 
@@ -28,8 +28,8 @@
 
     <!-- Create Post -->
     <section class="create-post">
-             <form>
-                  <textarea id="post-input" maxlength="160" placeholder="What’s happening around you?"></textarea>
+        <form>
+            <textarea id="post-input" maxlength="160" placeholder="What’s happening around you?"></textarea>
 
             <footer class="post-controls">
                 <output id="char-count">0 / 160</output>
@@ -38,10 +38,8 @@
         </form>
     </section>
 
-    <!-- Posts Feed -->
-    <section id="posts-feed">
-	<p>Where posts go</p>
-    </section>
+    <!-- Posts Feed. Fed by fetcher.js -->
+    <section id="post-feed"></section>
 
 </main>
 
