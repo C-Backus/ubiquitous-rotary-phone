@@ -6,7 +6,7 @@ server {
 
 	# Node API proxy
 	location /api/ {
-		proxy_pass ;
+		proxy_pass ; 
 		proxy_set_header Host $host;
 		proxy_http_version 1.1;
 		proxy_set_header Upgrade $http_upgrade;
@@ -16,13 +16,13 @@ server {
 	}
 
 	location = / {
-		proxy_pass ;
+		proxy_pass ; 
 		proxy_set_header Host $host;
 	}
 
 	#Serve protected HTML pages through Node
 	location ~ ^/(index\.html|profile\.html)$ {
-		proxy_pass ;
+		proxy_pass ; 
 		proxy_set_header Host $host;
 	}
 

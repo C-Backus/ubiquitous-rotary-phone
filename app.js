@@ -7,7 +7,7 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: ,
+	secret: , //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT** //needs to be longer more random string
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
@@ -30,7 +30,12 @@ app.post("/api/posts", (req, res) => {
         return res.status(401).json({ message: "Not logged in" });
     }
 
-    const { content } = req.body;
+	//need location
+	if (!req.body.location) {
+		return res.status(400).json({ message: "Location required" });
+	}
+
+    const { content, location } = req.body;
 
     if (!content) {
         return res.status(400).json({ message: "Post content required" });
@@ -40,7 +45,8 @@ app.post("/api/posts", (req, res) => {
         id: posts.length + 1,
         username: req.session.user.username,
         content: content,
-        createdAt: new Date() //will eventually be location
+        location: location,
+        createdAt: new Date()
     };
 
     posts.push(post);
@@ -51,9 +57,45 @@ app.post("/api/posts", (req, res) => {
     });
 });
 
+//convert lat long location to a 5 mile radius using Haversine Formula
+function latLongToMiles(lat1, lon1, lat2, lon2) {
+	
+	const R = 3958.8; //radius of Earth in miles
+	const dLat = (lat2 - lat1) * Math.PI / 180;
+	const dLon = (lon2 - lon1) * Math.PI / 180;
+	const a = 
+		Math.sin(dLat/2) * Math.sin(dLat/2) +
+		Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+		Math.sin(dLon/2) * Math.sin(dLon/2);
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+	return R * c;
+}
+
 //get all posts
 app.get("/api/posts", (req, res) => {
-    res.json(posts);
+	const { lat, long } = req.query;
+
+	if (!lat || !long) {
+		return res.status(400).json({ message: "Location required" });
+	}
+
+	const userLat = parseFloat(lat);
+	const userLong = parseFloat(long);
+
+	const nearbyPosts = posts.filter(p => {
+        if (!p.location) return false;
+
+        const distance = latLongToMiles(
+            userLat,
+            userLong,
+            p.location.lat,
+            p.location.long
+        );
+
+        return distance <= 5;
+    });
+
+    res.json(nearbyPosts);
 });
 
 //get posts for specific user
@@ -99,7 +141,7 @@ app.get("/index.html", (req, res) => {
 //register
 app.post("/api/register", async (req, res) => {
 
-	const { username, email, password } = req.body;
+	const { username, email, password, location } = req.body;
 
 	//check if user already exists
 	const existingUser = users.find(u => u.username === username);
@@ -120,7 +162,8 @@ app.post("/api/register", async (req, res) => {
 		id: users.length + 1,
 		username: username,
 		email: email,
-		password: hashedPassword
+		password: hashedPassword,
+		location: location
 	};
 
 	//push it into user storage
@@ -130,7 +173,8 @@ app.post("/api/register", async (req, res) => {
 	req.session.user = {
 		id: user.id,
 		username: user.username,
-		email: user.email
+		email: user.email,
+		location: user.location
 	};
 
 	res.json({

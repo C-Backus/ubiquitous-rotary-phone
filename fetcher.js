@@ -1,3 +1,76 @@
+//get user location
+function getLocation() {
+
+	return new Promise((resolve, reject) => {
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                resolve({
+                    lat: position.coords.latitude,
+                    long: position.coords.longitude
+                });
+            },
+            (error) => reject(error)
+        );
+    });
+}
+
+//generic function to render posts to a given container, used for both feed and profile pages
+function assemblePosts(container, posts) {
+
+	container.innerText = "";
+
+	//post framework
+	for (let i = 0; i < posts.length; i++) {
+		const post = posts[i];
+
+		//main container
+		const article = document.createElement("article");
+		article.classList.add("post");
+
+		//post header
+		const header = document.createElement("header");
+		header.classList.add("post-header");
+
+		//profile picture and username		
+		const figure = document.createElement("figure");
+		
+		const profilePic = document.createElement("img");
+		
+		profilePic.src = "profile.png";
+		profilePic.classList.add("profile-pic");
+		
+		const figcaption = document.createElement("figcaption");
+		
+		const username = document.createElement("strong");
+		username.classList.add("post-username");
+		username.innerText = "@" + post.username;
+
+		//go to user profile when username clicked and make cursor pointer to show it's clickable
+		username.style.cursor = "pointer";
+		username.onclick = () => { window.location.href = `profile.html?username=${post.username}`;};
+
+		//assemble header
+		figcaption.appendChild(username);
+		figure.appendChild(profilePic);
+		figure.appendChild(figcaption);
+		header.appendChild(figure);	
+
+		//post body
+		const text = document.createElement("p");
+		text.classList.add("post-text");
+		text.innerText = post.content;
+
+		//assemble post
+		article.appendChild(header);
+		article.appendChild(text);
+
+		//add post to feed
+		container.appendChild(article);
+
+	}
+}
+
 //load posts for feed page
 const postFeed = document.getElementById("post-feed");
 
@@ -7,7 +80,10 @@ if (postFeed) {
 
 async function loadPosts() {
 
-    const response = await fetch("/api/posts");
+    const location = await getLocation();
+	const response = await fetch(`/api/posts?lat=${location.lat}&long=${location.long}`,
+		{ credentials: "include" }
+	);
 
     if (!response.ok) {
         postFeed.innerText = "Error loading posts";
@@ -15,20 +91,14 @@ async function loadPosts() {
     }
 
     const posts = await response.json();
-
-    let text = "";
-
-    for (let i = 0; i < posts.length; i++) {
-        text += posts[i].content + " (" + posts[i].username + ")\n";
-    }
-
-    postFeed.innerText = text;
+	assemblePosts(postFeed, posts);
 }
 
-//dynamically load profile posts based on username in URL. example: /profile.html?username=alice
-//also loads username to show on profile page
+//dynamically load profile posts based on username in URL, also load username to show on profile page
+//example: /profile.html?username=alice
 const userPostFeed = document.getElementById("user-post-feed");
-const profileUsername = document.getElementById("username");
+const summaryUsername = document.getElementById("summary-username");
+const headerUsername = document.getElementById("header-username");
 
 async function loadProfile() {
 
@@ -49,9 +119,18 @@ async function loadProfile() {
 		username = sessionData.user.username;
 	}
 
-	//load username
-	if(profileUsername) {
-		profileUsername.innerText = "@" + username;
+	//load username in title only on profile page
+	if (window.location.pathname === "/profile.html") {
+		document.title = "@" + username + " | MycoNet \u{1F344}";
+	}
+
+	//load summary username
+	if(summaryUsername) {
+		summaryUsername.innerText = "@" + username;
+	}
+	//load header username
+	if(headerUsername) {
+		headerUsername.innerText = "@" + username;
 	}
 
 	//load user posts
@@ -63,20 +142,20 @@ async function loadProfile() {
 			return;
 		}
 
-		const userPosts = await response.json();
-		let text = "";
-		for (let i = 0; i < userPosts.length; i++) {
-			text += userPosts[i].content + " ("+ userPosts[i].username + ")\n";
-		}
-		userPostFeed.innerText = text;
+		//call generic loadPosts function to load posts for this user
+		const posts = await response.json();
+		assemblePosts(userPostFeed, posts);
 	}
 }
-loadProfile();
+if (window.location.pathname === "/profile.html") {
+	loadProfile();
+}
 
 //create post form submission
 const postForm = document.querySelector(".create-post form");
 const postInput = document.getElementById("post-input");
 const charCount = document.getElementById("char-count");
+const location = await getLocation();
 
 if (postInput && charCount) {
 	postInput.addEventListener("input", function() {
@@ -100,7 +179,7 @@ if (postForm) {
 			method: "POST",
 			credentials: "include",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ content })
+			body: JSON.stringify({ content, location })
 		});
 
 		const result = await response.json();
@@ -142,23 +221,31 @@ if (registerForm) {
 		return;
 	}
 
-	//POST to register endpoint
-	const response = await fetch("/api/register", {
-		method: "POST",
-		credentials: "include",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ username, email, password })
-	});
+	try{
+		const location = await getLocation();
+		
+		//POST to register endpoint
+		const response = await fetch("/api/register", {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ username, email, password, location })
+		});
 
-	const result = await response.json();
+		const result = await response.json();
 
-	if (!response.ok) {
-		alert("Registration failed: " + result.message);
-		return;
+		if (!response.ok) {
+			alert("Registration failed: " + result.message);
+			return;
+		}
+
+		//Registration success, redirect to feed
+		document.location = "index.html";
 	}
-
-	//Registration success, redirect to feed
-	document.location = "index.html";
+	catch(error) {
+		alert("Error: Location is required to register");
+		console.error("Error getting location:", error);
+	}
 });
 }
 

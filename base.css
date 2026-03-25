@@ -20,6 +20,7 @@ body {
     padding: 0 1rem;
 }
 
+/* for create post form on feed page */
 .create-post {
     background: white;
     padding: 1rem;
@@ -28,7 +29,7 @@ body {
 }
 
 textarea {
-    width: 100%;
+    width: 96%;
     resize: none;
     padding: 10px;
     font-size: 14px;
@@ -55,6 +56,30 @@ button {
     width: 40px;
     height: 40px;
     border-radius: 50%;
+}
+
+/*for posts on feed and profile pages*/
+.post {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.post-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.post-username {
+    font-weight: bold;
+}
+
+.post-text {
+    margin: 10px 0;
+    font-size: 1rem;
 }
 
 /*for login & register pages*/
