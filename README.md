@@ -53,6 +53,8 @@ Why? To share their thoughts and feelings in an interactive way. <i>You have to 
 
 <li>Finish GPS services. Establish posting architecture</li>
 
+<b>Sprint complete.</b></li>
+
 <li>Establish post interaction architecture (likes, reblogs, replies)</li>
 
 <li>Polish look and feel</li>

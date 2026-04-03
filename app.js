@@ -7,7 +7,7 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: , //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT** //needs to be longer more random string
+	secret: 'myconet-secret', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT** //needs to be longer more random string
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
