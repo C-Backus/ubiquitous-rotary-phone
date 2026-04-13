@@ -57,5 +57,7 @@ Why? To share their thoughts and feelings in an interactive way. <i>You have to 
 
 <li>Establish post interaction architecture (likes, reblogs, replies)</li>
 
+<b>Sprint complete.</b></li>
+
 <li>Polish look and feel</li>
 </ol>
