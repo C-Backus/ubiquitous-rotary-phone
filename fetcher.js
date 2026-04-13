@@ -15,6 +15,8 @@ function getLocation() {
     });
 }
 
+//---------ASSEMBLE POST AND POSTS INTERACTIONS---------
+
 //generic function to render posts to a given container, used for both feed and profile pages
 function assemblePosts(container, posts) {
 
@@ -34,7 +36,6 @@ function assemblePosts(container, posts) {
 
 		//profile picture and username		
 		const figure = document.createElement("figure");
-		
 		const profilePic = document.createElement("img");
 		
 		profilePic.src = "profile.png";
@@ -46,7 +47,24 @@ function assemblePosts(container, posts) {
 		username.classList.add("post-username");
 		username.innerText = "@" + post.username;
 
-		//go to user profile when username clicked and make cursor pointer to show it's clickable
+		//is reblog?
+		if (post.rebloggedFrom) {
+			const reblogInfo = document.createElement("div");
+			reblogInfo.classList.add("reblog-info");
+			reblogInfo.innerText = "\uD83D\uDD01 Reblogged from ";
+
+			const originalUser = document.createElement("strong");
+			originalUser.classList.add("post-username");
+			originalUser.innerText = "@" + post.rebloggedFrom;
+
+			originalUser.style.cursor = "pointer";
+			originalUser.onclick = () => { window.location.href = `profile.html?username=${post.rebloggedFrom}`;};
+			
+			reblogInfo.appendChild(originalUser);
+			header.appendChild(reblogInfo);
+		}
+
+		//go to user profile when username clicked and make cursor a pointer to show it's clickable
 		username.style.cursor = "pointer";
 		username.onclick = () => { window.location.href = `profile.html?username=${post.username}`;};
 
@@ -54,7 +72,96 @@ function assemblePosts(container, posts) {
 		figcaption.appendChild(username);
 		figure.appendChild(profilePic);
 		figure.appendChild(figcaption);
-		header.appendChild(figure);	
+		//only add profile picture and username to header if not a reblog
+		if(!post.rebloggedFrom) {
+			header.appendChild(figure);	
+		}
+
+		//post interactions
+		const footer = document.createElement("footer");
+		footer.classList.add("post-actions");
+
+		//like post
+		const likeButton = document.createElement("button");
+		likeButton.classList.add("like-button");
+		likeButton.innerText = "\u2764\uFE0F " + post.likes.length;
+
+		likeButton.onclick = async function() {
+			const response = await fetch(`/api/posts/${post.id}/like`, {
+				method: "POST",
+				credentials: "include"
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				alert("Error liking post: " + result.message);
+				return;
+			}
+
+			//update like count on button
+			likeButton.innerText = "\u2764\uFE0F " + (result.likes?.length || 0);
+		}
+
+		//reply to post
+		const replyButton = document.createElement("button");
+		replyButton.classList.add("reply-button");
+		replyButton.innerText = "\uD83D\uDCAC " + post.replies.length;
+
+		replyButton.onclick = async function() {
+			//for simplicity, just prompt for reply content. in a real app, would want a nicer UI for this
+			const content = prompt("Enter your reply:");
+
+			if (!content || !content.trim()) {
+				alert("Reply content required");
+				return;
+			}
+
+			const response = await fetch(`/api/posts/${post.id}/reply`, {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ content })
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				alert("Error replying to post: " + result.message);
+				return;
+			}
+
+			//update reply count on button
+			replyButton.innerText = "\uD83D\uDCAC " + (result.replies?.length || 0);
+			loadPosts();
+		}
+
+		//reblog post
+		const reblogButton = document.createElement("button");
+		reblogButton.classList.add("reblog-button");
+		reblogButton.innerText = "\uD83D\uDD01 " + post.reblogs.length;
+
+		reblogButton.onclick = async function() {
+			const response = await fetch(`/api/posts/${post.id}/reblog`, {
+				method: "POST",
+				credentials: "include"
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				alert("Error reblogging post: " + result.message);
+				return;
+			}
+
+			//update reblog count on button
+			reblogButton.innerText = "\uD83D\uDD01 " + (result.reblogs?.length || 0);
+			loadPosts();
+		}
+
+		footer.appendChild(likeButton);
+		footer.appendChild(replyButton);
+		footer.appendChild(reblogButton);
 
 		//post body
 		const text = document.createElement("p");
@@ -64,6 +171,34 @@ function assemblePosts(container, posts) {
 		//assemble post
 		article.appendChild(header);
 		article.appendChild(text);
+		article.appendChild(footer);
+
+		//if there are replies, add them in a section under the post
+		if (post.replies.length > 0) {
+			const repliesSection = document.createElement("section");
+			repliesSection.classList.add("replies-section");
+
+			post.replies.forEach(reply => {
+				const replyArticle = document.createElement("article");
+				replyArticle.classList.add("reply");
+
+				const replyHeader = document.createElement("header");
+				const user = document.createElement("strong");
+				user.innerText = "@" + reply.username;
+				replyHeader.appendChild(user);
+
+				const replyText = document.createElement("p");
+				replyText.innerText = reply.content;
+
+				replyArticle.appendChild(replyHeader);
+				replyArticle.appendChild(replyText);
+				
+
+				repliesSection.appendChild(replyArticle);
+			});
+
+			article.appendChild(repliesSection);
+		}
 
 		//add post to feed
 		container.appendChild(article);
@@ -71,12 +206,8 @@ function assemblePosts(container, posts) {
 	}
 }
 
-//load posts for feed page
-const postFeed = document.getElementById("post-feed");
 
-if (postFeed) {
-    loadPosts();
-}
+//---------LOAD PROFILE, CREATE POST, LOAD POSTS---------
 
 async function loadPosts() {
 
@@ -142,7 +273,7 @@ async function loadProfile() {
 			return;
 		}
 
-		//call generic loadPosts function to load posts for this user
+		//call generic assemblePosts function to create posts for this user
 		const posts = await response.json();
 		assemblePosts(userPostFeed, posts);
 	}
@@ -155,7 +286,6 @@ if (window.location.pathname === "/profile.html") {
 const postForm = document.querySelector(".create-post form");
 const postInput = document.getElementById("post-input");
 const charCount = document.getElementById("char-count");
-const location = await getLocation();
 
 if (postInput && charCount) {
 	postInput.addEventListener("input", function() {
@@ -166,6 +296,8 @@ if (postInput && charCount) {
 if (postForm) {
 	postForm.addEventListener("submit", async function(event) {
 		event.preventDefault();
+
+		const location = await getLocation();
 
 		const content = postInput.value;
 
@@ -200,7 +332,7 @@ if (postForm) {
 }
 
 
-//---------REGISTER, LOGIN, LOGOUT----------------
+//---------REGISTER, LOGIN, LOGOUT--------
 
 //wanted to do it this style -> document.getElementById("registerForm").addEventListener("submit", async function(event), 
 //but would get 405 errors when clicking register. therefore, continued this style below for all functions
@@ -295,4 +427,11 @@ if (logoutButton) {
 
 	        document.location = "login.html";
     });
+}
+
+//load posts for feed page
+const postFeed = document.getElementById("post-feed");
+
+if (postFeed) {
+	loadPosts();
 }

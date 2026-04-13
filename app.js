@@ -7,7 +7,7 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: 'myconet-secret', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT** //needs to be longer more random string
+	secret: '', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT**
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
@@ -42,11 +42,17 @@ app.post("/api/posts", (req, res) => {
     }
 
     const post = {
+		//main post info
         id: posts.length + 1,
         username: req.session.user.username,
         content: content,
         location: location,
-        createdAt: new Date()
+        createdAt: new Date(),
+
+		//post interactions
+		likes: [],
+		replies: [],
+		reblogs: []
     };
 
     posts.push(post);
@@ -105,6 +111,99 @@ app.get("/api/users/:username/posts", (req, res) => {
     res.json(userPosts);
 });
 
+//-------------POST INTERACTIONS----------------
+
+//like/unlike post
+app.post("/api/posts/:id/like", (req, res) => {
+	if (!req.session.user) {
+		return res.status(401).json({ message: "Not logged in" });
+	}
+
+	const postId = parseInt(req.params.id);
+	const post = posts.find(p => p.id === postId);
+
+	if (!post) {
+		return res.status(404).json({ message: "Post not found" });
+	}
+
+	const userId = req.session.user.id;
+
+	//toggleable like: if user already liked, remove like. else, add like
+	if (post.likes.includes(userId)) {
+		post.likes = post.likes.filter(id => id !== userId);
+	} else {
+		post.likes.push(userId);
+	}
+
+	res.json({ likes: post.likes });
+});
+
+//reply to post
+app.post("/api/posts/:id/reply", (req, res) => {
+	if (!req.session.user) {
+		return res.status(401).json({ message: "Not logged in" });
+	}
+
+	const postId = parseInt(req.params.id);
+	const post = posts.find(p => p.id === postId);
+
+	if (!post) {
+		return res.status(404).json({ message: "Post not found" });
+	}
+
+	const reply = {
+		id: post.replies.length + 1,
+		username: req.session.user.username,
+		content: req.body.content,
+		createdAt: new Date()
+	};
+
+	post.replies.push(reply);
+
+	res.json({ replies: post.replies });
+});
+
+//reblog/unreblog post
+app.post("/api/posts/:id/reblog", (req, res) => {
+	if (!req.session.user) {
+		return res.status(401).json({ message: "Not logged in" });
+	}
+
+	const postId = parseInt(req.params.id);
+	const post = posts.find(p => p.id === postId);
+
+	if (!post) {
+		return res.status(404).json({ message: "Post not found" });
+	}
+	
+	const userId = req.session.user.id;
+
+	//toggleable reblog: if user already reblogged, remove reblog. else, add reblog
+	if (post.reblogs.includes(userId)) {
+		post.reblogs = post.reblogs.filter(id => id !== userId);
+
+		for (let i = posts.length - 1; i >= 0; i--) {
+			if (posts[i].originalPostId === post.id && posts[i].userId === userId) {
+				posts.splice(i, 1);
+				
+			}
+		}
+	} else {
+		post.reblogs.push(userId);
+		
+		posts.push({
+			...post,
+			id: posts.length + 1,
+			username: req.session.user.username,
+			userId: userId,
+			originalPostId: post.id,
+			rebloggedFrom: post.username,
+			createdAt: new Date()
+		});
+		
+	}
+	res.json({ reblogs: post.reblogs });
+});
 
 //-------------USER FUNCTIONS----------------
 
