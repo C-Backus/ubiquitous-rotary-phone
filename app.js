@@ -1,3 +1,4 @@
+const { sequelize, User, Post, Reply, Like } = require("./models");
 const express = require('express');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
@@ -7,60 +8,59 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: '', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT**
+	secret: 'myconet-secret', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT**
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
 }));
 
-//user storage
-let users = [];
-
-//posts storage
-let posts = [];
-
 
 //-------------POST FUNCTIONS----------------
 
 //create post
-app.post("/api/posts", (req, res) => {
+app.post("/api/posts", async (req, res) => {
 
     //must be logged in
     if (!req.session.user) {
         return res.status(401).json({ message: "Not logged in" });
     }
 
-	//need location
-	if (!req.body.location) {
-		return res.status(400).json({ message: "Location required" });
-	}
-
     const { content, location } = req.body;
 
-    if (!content) {
+    if (!content || !content.trim()) {
         return res.status(400).json({ message: "Post content required" });
     }
 
-    const post = {
-		//main post info
-        id: posts.length + 1,
-        username: req.session.user.username,
-        content: content,
-        location: location,
-        createdAt: new Date(),
+    if (!location || location.lat == null || location.long == null) {
+        return res.status(400).json({ message: "Location required" });
+    }
 
-		//post interactions
-		likes: [],
-		replies: [],
-		reblogs: []
-    };
+    try {
+        const user = await User.findOne({
+            where: { username: req.session.user.username }
+        });
 
-    posts.push(post);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
 
-    res.json({
-        message: "Post created",
-        post: post
-    });
+        //create post in db
+        const post = await Post.create({
+            content: content.trim(),
+            locationLat: location.lat,
+            locationLong: location.long,
+            UserId: user.id
+        });
+
+        res.json({
+            message: "Post created",
+            post
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //convert lat long location to a 5 mile radius using Haversine Formula
@@ -78,141 +78,310 @@ function latLongToMiles(lat1, lon1, lat2, lon2) {
 }
 
 //get all posts
-app.get("/api/posts", (req, res) => {
-	const { lat, long } = req.query;
+app.get("/api/posts", async (req, res) => {
+    const { lat, long } = req.query;
 
-	if (!lat || !long) {
-		return res.status(400).json({ message: "Location required" });
-	}
+    if (!lat || !long) {
+        return res.status(400).json({ message: "Location required" });
+    }
 
-	const userLat = parseFloat(lat);
-	const userLong = parseFloat(long);
+    const userLat = parseFloat(lat);
+    const userLong = parseFloat(long);
 
-	const nearbyPosts = posts.filter(p => {
-        if (!p.location) return false;
+    try {
+        const posts = await Post.findAll({
+            include: [
+                { model: User },     //author
+                { 
+                    model: Reply,    //replies
+                    include: [{ model: User }] //so reply.User.username works
+                }, 
+                {
+                    model: User,
+                    as: "Likers",    //likes
+                    attributes: ["id"]
+                },
+				{				
+                    model: Post,
+                    as: "Reblogs",	//reblogs
+                    attributes: ["id"]
+                },
+                {
+                    model: Post,
+                    as: "OriginalPost",
+                    include: [{ model: User }] //gets the username of the user the post is reblogged from
+                }
+            ],
+            order: [["createdAt", "DESC"]] 	//most recent at top of page
+        });
 
-        const distance = latLongToMiles(
-            userLat,
-            userLong,
-            p.location.lat,
-            p.location.long
-        );
+        const nearbyPosts = posts.filter(p => {
+            if (!p.locationLat || !p.locationLong) return false;
 
-        return distance <= 5;
-    });
+            const distance = latLongToMiles(
+                userLat,
+                userLong,
+                p.locationLat,
+                p.locationLong
+            );
 
-    res.json(nearbyPosts);
+            return distance <= 5;
+        });
+
+        //assemble posts
+        const formatted = nearbyPosts.map(p => ({
+            id: p.id,
+            content: p.content,
+            createdAt: p.createdAt,
+            User: {
+                username: p.User?.username
+            },
+
+            replies: p.Replies || [],
+            likes: p.Likers || [],
+            reblogs: p.Reblogs || [],
+            rebloggedFrom: p.OriginalPost ? p.OriginalPost.User.username : null,
+            rebloggedTime: p.OriginalPost ? p.OriginalPost.createdAt : null,
+			locationLat: p.locationLat,
+            locationLong: p.locationLong,
+            rebloggedFrom: p.OriginalPost?.User?.username || null
+        }));
+
+        res.json(formatted);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //get posts for specific user
-app.get("/api/users/:username/posts", (req, res) => {
-    const username = req.params.username;
-    const userPosts = posts.filter(p => p.username === username);
-    res.json(userPosts);
+app.get("/api/users/:username/posts", async (req, res) => {
+    try {
+        const posts = await Post.findAll({
+            include: [
+                { 
+                    model: User, 
+                    where: { username: req.params.username }
+                },
+                { 
+                    model: Reply, 
+                    include: [{ model: User }] 
+                },
+                {
+                    model: User,
+                    as: "Likers",
+                    attributes: ["id"]
+                },
+				{				
+                    model: Post,
+                    as: "Reblogs",	//reblogs
+                    attributes: ["id"]
+                },
+                {
+                    model: Post,
+                    as: "OriginalPost",
+                    include: [{ model: User }] //gets the username of the user the post is reblogged from
+                }
+            ],
+            order: [["createdAt", "DESC"]]	//most recent at top of page
+        });
+
+        //assemble posts
+        const formatted = posts.map(p => ({
+            id: p.id,
+            content: p.content,
+            createdAt: p.createdAt,
+            User: {
+                username: p.User?.username
+            },
+            replies: p.Replies || [],
+            likes: p.Likers || [],
+			reblogs: p.Reblogs || [],
+            rebloggedFrom: p.OriginalPost ? p.OriginalPost.User.username : null,
+            rebloggedTime: p.OriginalPost ? p.OriginalPost.createdAt : null,
+            locationLat: p.locationLat,
+            locationLong: p.locationLong,
+            rebloggedFrom: p.OriginalPost?.User?.username || null
+        }));
+
+        res.json(formatted);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //-------------POST INTERACTIONS----------------
 
 //like/unlike post
-app.post("/api/posts/:id/like", (req, res) => {
+app.post("/api/posts/:id/like", async (req, res) => {
 	if (!req.session.user) {
 		return res.status(401).json({ message: "Not logged in" });
 	}
+	try {
+        const post = await Post.findByPk(req.params.id);
 
-	const postId = parseInt(req.params.id);
-	const post = posts.find(p => p.id === postId);
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+		
+		const user = await User.findByPk(req.session.user.id);
 
-	if (!post) {
-		return res.status(404).json({ message: "Post not found" });
-	}
+        //"Liker" for check and "Likers" for add/remove
+        const alreadyLiked = await post.hasLiker(user); 
 
-	const userId = req.session.user.id;
+        if (alreadyLiked) {
+            await post.removeLiker(user);
+        } else {
+            await post.addLiker(user);
+        }
 
-	//toggleable like: if user already liked, remove like. else, add like
-	if (post.likes.includes(userId)) {
-		post.likes = post.likes.filter(id => id !== userId);
-	} else {
-		post.likes.push(userId);
-	}
+        //get the updated list using the alias in db
+        const updatedLikes = await post.getLikers({ attributes: ['id'] });
 
-	res.json({ likes: post.likes });
+        res.json({
+            likes: updatedLikes
+        });
+
+    } catch (err) {
+        console.error("Like error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //reply to post
-app.post("/api/posts/:id/reply", (req, res) => {
+app.post("/api/posts/:id/reply", async (req, res) => {
 	if (!req.session.user) {
 		return res.status(401).json({ message: "Not logged in" });
 	}
 
-	const postId = parseInt(req.params.id);
-	const post = posts.find(p => p.id === postId);
+ const { content } = req.body;
 
-	if (!post) {
-		return res.status(404).json({ message: "Post not found" });
-	}
+    if (!content || !content.trim()) {
+        return res.status(400).json({ message: "Reply content required" });
+    }
 
-	const reply = {
-		id: post.replies.length + 1,
-		username: req.session.user.username,
-		content: req.body.content,
-		createdAt: new Date()
-	};
+    try {
+        const post = await Post.findByPk(req.params.id);
 
-	post.replies.push(reply);
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
 
-	res.json({ replies: post.replies });
+        const user = await User.findOne({
+            where: { username: req.session.user.username }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        //create reply in db
+        const reply = await Reply.create({
+            content: content.trim(),
+            PostId: post.id,
+            UserId: user.id
+        });
+
+        //return updated replies
+        const replies = await Reply.findAll({
+            where: { PostId: post.id },
+            include: [{ model: User }],
+            order: [["createdAt", "DESC"]]
+        });
+
+        res.json({ replies });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //reblog/unreblog post
-app.post("/api/posts/:id/reblog", (req, res) => {
+app.post("/api/posts/:id/reblog", async (req, res) => {
 	if (!req.session.user) {
 		return res.status(401).json({ message: "Not logged in" });
 	}
 
-	const postId = parseInt(req.params.id);
-	const post = posts.find(p => p.id === postId);
+	try {
+        const originalPost = await Post.findByPk(req.params.id);
 
-	if (!post) {
-		return res.status(404).json({ message: "Post not found" });
-	}
-	
-	const userId = req.session.user.id;
+        if (!originalPost) {
+            return res.status(404).json({ message: "Post not found" });
+        }
 
-	//toggleable reblog: if user already reblogged, remove reblog. else, add reblog
-	if (post.reblogs.includes(userId)) {
-		post.reblogs = post.reblogs.filter(id => id !== userId);
+        const user = await User.findOne({
+            where: { username: req.session.user.username }
+        });
 
-		for (let i = posts.length - 1; i >= 0; i--) {
-			if (posts[i].originalPostId === post.id && posts[i].userId === userId) {
-				posts.splice(i, 1);
-				
-			}
-		}
-	} else {
-		post.reblogs.push(userId);
-		
-		posts.push({
-			...post,
-			id: posts.length + 1,
-			username: req.session.user.username,
-			userId: userId,
-			originalPostId: post.id,
-			rebloggedFrom: post.username,
-			createdAt: new Date()
-		});
-		
-	}
-	res.json({ reblogs: post.reblogs });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        //check if user already reblogged post
+        const existingReblog = await Post.findOne({
+            where: {
+                UserId: user.id,
+                rebloggedFromId: originalPost.id
+            }
+        });
+
+        //unreblog
+        if (existingReblog) {
+            await existingReblog.destroy();
+        } else {
+
+            //reblog
+            await Post.create({
+                content: originalPost.content,
+                locationLat: originalPost.locationLat,
+                locationLong: originalPost.locationLong,
+                UserId: user.id,
+                rebloggedFromId: originalPost.id
+            });
+        }
+
+        //get the updated list of reblogs to send to frontend
+        const updatedReblogs = await Post.findAll({ 
+            where: { rebloggedFromId: originalPost.id } 
+        });
+
+        res.json({
+            reblogged: !existingReblog,
+            reblogs: updatedReblogs
+        });
+
+    } catch (err) {
+        console.error("REBLOG ERROR:", err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 //-------------USER FUNCTIONS----------------
 
 //get session info
-app.get("/api/session", (req, res) => {
+app.get("/api/session", async (req, res) => {
+
 	if (!req.session.user) {
 		return res.status(401).json({ message: "Not logged in" });
 	}
-	res.json({ user: req.session.user });
+
+	const user = await User.findByPk(req.session.user.id);
+
+	if (!user) {
+		return res.status(401).json({ message: "User no longer exists" });
+	}
+
+	res.json({
+		user: {
+			id: user.id,
+			username: user.username,
+			email: user.email
+		}
+	});
 });
 
 //protect profile and index pages
@@ -242,45 +411,52 @@ app.post("/api/register", async (req, res) => {
 
 	const { username, email, password, location } = req.body;
 
-	//check if user already exists
-	const existingUser = users.find(u => u.username === username);
-	const existingEmail = users.find(u => u.email === email);
+	try {
 
-	if (existingUser) {
-		return res.status(400).json({ message: "User already exists" });
+		//check existing user/email in db
+		const existingUser = await User.findOne({ where: { username } });
+		if (existingUser) {
+			return res.status(400).json({ message: "User already exists" });
+		}
+
+		const existingEmail = await User.findOne({ where: { email } });
+		if (existingEmail) {
+			return res.status(400).json({ message: "Email already in use" });
+		}
+
+		//hash password
+		const hashedPassword = await bcrypt.hash(password, 10);
+
+		//location exists
+		if (!location?.lat || !location?.long) {
+			return res.status(400).json({ message: "Location required" });
+		}
+
+		//create user in db
+		const user = await User.create({
+			username,
+			email,
+			password: hashedPassword,
+			locationLat: location.lat,
+			locationLong: location.long
+		});
+
+		//store session
+		req.session.user = {
+			id: user.id,
+			username: user.username,
+			email: user.email
+		};
+
+		res.json({
+			message: "User registered",
+			user: req.session.user
+		});
+
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: "Server error" });
 	}
-	if (existingEmail) {
-		return res.status(400).json({ message: "Email already in use" });
-	}
-
-	//hash the password with 10 salt rounds
-	const hashedPassword = await bcrypt.hash(password, 10);
-
-	//assemble user
-	const user = {
-		id: users.length + 1,
-		username: username,
-		email: email,
-		password: hashedPassword,
-		location: location
-	};
-
-	//push it into user storage
-	users.push(user);
-
-	//log in after registering
-	req.session.user = {
-		id: user.id,
-		username: user.username,
-		email: user.email,
-		location: user.location
-	};
-
-	res.json({
-		message: "User registered",
-		user: req.session.user
-	});
-
 });
 
 //login
@@ -288,31 +464,38 @@ app.post("/api/login", async (req, res) => {
 
 	const { email, password } = req.body;
 
-	//find email
-	const user = users.find(u => u.email === email);
+	try {
 
-	//if not email, invalid
-	if (!user) {
-		return res.status(401).json({ message: "Invalid credentials" });
+		//find user in db
+		const user = await User.findOne({ where: { email } });
+
+		if (!user) {
+			return res.status(401).json({ message: "Invalid credentials" });
+		}
+
+		//compare password
+		const password_match = await bcrypt.compare(password, user.password);
+
+		if (!password_match) {
+			return res.status(401).json({ message: "Invalid credentials" });
+		}
+
+		//store session
+		req.session.user = {
+			id: user.id,
+			username: user.username,
+			email: user.email
+		};
+
+		res.json({
+			message: "Login successful",
+			user: req.session.user
+		});
+
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: "Server error" });
 	}
-	
-	//find password and compare 
-	const password_match = await bcrypt.compare(password, user.password);
-
-	//if not password, invalid
-	if (!password_match) {
-		return res.status(401).json({ message: "Invalid credentials" });
-	}
-
-	//store user in session
-	req.session.user = {
-		id: user.id,
-		username: user.username,
-		email: user.email
-	};
-
-	res.json({ message: "Login successful", user: req.session.user });
-
 });
 
 //logout
@@ -331,8 +514,15 @@ app.post("/api/logout", (req, res) => {
 
 });
 
+//------ sync database & run server ------
+sequelize.sync().then(() => {
+    console.log("Database synced");
 
-//start server
-app.listen(3001, '0.0.0.0', () => {
-	console.log("MycoNet API running on port 3001");
+	app.listen(3001, '0.0.0.0', () => {
+		console.log("MycoNet API running on port 3001");
+	});
+
+}).catch(err => {
+    console.error("Error syncing database:", err);
 });
+

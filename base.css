@@ -68,9 +68,26 @@ button {
 
 .post-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 10px;
     margin-bottom: 8px;
+    width: 100%
+}
+
+.post-header figure {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+}
+
+.post-header figcaption {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
 }
 
 .post-username {
@@ -80,6 +97,29 @@ button {
 .post-text {
     margin: 10px 0;
     font-size: 1rem;
+}
+
+.reply {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-bottom: 1px solid #eee;
+    padding: 8px 0;
+}
+
+.reply header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.reblog-info {
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    width: 100%;
+    gap: 5px;
 }
 
 /*for login & register pages*/

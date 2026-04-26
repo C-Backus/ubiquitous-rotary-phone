@@ -15,6 +15,12 @@ function getLocation() {
     });
 }
 
+//format time stamp
+function formatTimeStamp(isoString) {
+    const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(isoString).toLocaleDateString(undefined, options);
+}
+
 //---------ASSEMBLE POST AND POSTS INTERACTIONS---------
 
 //generic function to render posts to a given container, used for both feed and profile pages
@@ -45,12 +51,23 @@ function assemblePosts(container, posts) {
 		
 		const username = document.createElement("strong");
 		username.classList.add("post-username");
-		username.innerText = "@" + post.username;
+		username.innerText = "@" + post.User.username;
+
+		const timeStamp = document.createElement("small");
+		timeStamp.classList.add("post-time");
+		timeStamp.style.color = "black";
+		timeStamp.innerText = formatTimeStamp(post.createdAt);
 
 		//is reblog?
 		if (post.rebloggedFrom) {
 			const reblogInfo = document.createElement("div");
 			reblogInfo.classList.add("reblog-info");
+
+			const timeStamp = document.createElement("small");
+			timeStamp.classList.add("post-time");
+			timeStamp.style.color = "black";
+			timeStamp.innerText = formatTimeStamp(post.createdAt);
+
 			reblogInfo.innerText = "\uD83D\uDD01 Reblogged from ";
 
 			const originalUser = document.createElement("strong");
@@ -62,16 +79,19 @@ function assemblePosts(container, posts) {
 			
 			reblogInfo.appendChild(originalUser);
 			header.appendChild(reblogInfo);
+			header.appendChild(timeStamp);
 		}
 
 		//go to user profile when username clicked and make cursor a pointer to show it's clickable
 		username.style.cursor = "pointer";
-		username.onclick = () => { window.location.href = `profile.html?username=${post.username}`;};
+		username.onclick = () => { window.location.href = `profile.html?username=${post.User.username}`;};
 
 		//assemble header
 		figcaption.appendChild(username);
+		figcaption.appendChild(timeStamp);
 		figure.appendChild(profilePic);
 		figure.appendChild(figcaption);
+
 		//only add profile picture and username to header if not a reblog
 		if(!post.rebloggedFrom) {
 			header.appendChild(figure);	
@@ -84,7 +104,7 @@ function assemblePosts(container, posts) {
 		//like post
 		const likeButton = document.createElement("button");
 		likeButton.classList.add("like-button");
-		likeButton.innerText = "\u2764\uFE0F " + post.likes.length;
+		likeButton.innerText = "\u2764\uFE0F " + (post.likes?.length || 0);
 
 		likeButton.onclick = async function() {
 			const response = await fetch(`/api/posts/${post.id}/like`, {
@@ -100,7 +120,7 @@ function assemblePosts(container, posts) {
 			}
 
 			//update like count on button
-			likeButton.innerText = "\u2764\uFE0F " + (result.likes?.length || 0);
+			likeButton.innerText = "\u2764\uFE0F " + result.likes.length;
 		}
 
 		//reply to post
@@ -133,7 +153,13 @@ function assemblePosts(container, posts) {
 
 			//update reply count on button
 			replyButton.innerText = "\uD83D\uDCAC " + (result.replies?.length || 0);
-			loadPosts();
+
+			if (window.location.pathname.includes("profile.html")) {
+				loadProfile();
+			} else {
+				loadPosts();
+			}
+			
 		}
 
 		//reblog post
@@ -183,25 +209,34 @@ function assemblePosts(container, posts) {
 				replyArticle.classList.add("reply");
 
 				const replyHeader = document.createElement("header");
-				const user = document.createElement("strong");
-				user.innerText = "@" + reply.username;
-				replyHeader.appendChild(user);
+				const replyUser = document.createElement("strong");
+				replyUser.innerText = "@" + reply.User.username;
+
+				const timeStamp = document.createElement("small");
+				timeStamp.classList.add("post-time");
+				timeStamp.style.color = "black";
+				timeStamp.innerText = formatTimeStamp(reply.createdAt);
+
+				//go to user profile when username clicked and make cursor a pointer to show it's clickable
+				replyUser.style.cursor = "pointer";
+				replyUser.onclick = () => { window.location.href = `profile.html?username=${post.User.username}`;};
+
+				replyHeader.appendChild(replyUser);
+				replyArticle.appendChild(timeStamp);
 
 				const replyText = document.createElement("p");
 				replyText.innerText = reply.content;
 
 				replyArticle.appendChild(replyHeader);
 				replyArticle.appendChild(replyText);
-				
 
 				repliesSection.appendChild(replyArticle);
 			});
 
 			article.appendChild(repliesSection);
 		}
-
-		//add post to feed
 		container.appendChild(article);
+
 
 	}
 }
@@ -226,7 +261,6 @@ async function loadPosts() {
 }
 
 //dynamically load profile posts based on username in URL, also load username to show on profile page
-//example: /profile.html?username=alice
 const userPostFeed = document.getElementById("user-post-feed");
 const summaryUsername = document.getElementById("summary-username");
 const headerUsername = document.getElementById("header-username");
@@ -371,7 +405,7 @@ if (registerForm) {
 			return;
 		}
 
-		//Registration success, redirect to feed
+		//registration success, redirect to feed
 		document.location = "index.html";
 	}
 	catch(error) {
@@ -435,3 +469,6 @@ const postFeed = document.getElementById("post-feed");
 if (postFeed) {
 	loadPosts();
 }
+
+//automatically refresh the feed every 60 seconds
+setInterval(loadPosts, 60000);
