@@ -17,6 +17,11 @@ const User = sequelize.define('User', {
         unique: true,
         allowNull: false
     },
+    profilePic: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'profile.png'
+    },
     locationLat: {
 	type: DataTypes.FLOAT,
 	allowNull: true

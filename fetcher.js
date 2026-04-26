@@ -15,7 +15,7 @@ function getLocation() {
     });
 }
 
-//format time stamp
+//format time stamp for posts, reblogs, replies
 function formatTimeStamp(isoString) {
     const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(isoString).toLocaleDateString(undefined, options);
@@ -23,7 +23,7 @@ function formatTimeStamp(isoString) {
 
 //---------ASSEMBLE POST AND POSTS INTERACTIONS---------
 
-//generic function to render posts to a given container, used for both feed and profile pages
+//render posts to a given container, used for both feed and profile pages
 function assemblePosts(container, posts) {
 
 	container.innerText = "";
@@ -43,8 +43,15 @@ function assemblePosts(container, posts) {
 		//profile picture and username		
 		const figure = document.createElement("figure");
 		const profilePic = document.createElement("img");
-		
-		profilePic.src = "profile.png";
+
+		//check if the user has an uploaded profile pic
+		if (post.User.profilePic && post.User.profilePic !== "profile.png") {
+			profilePic.src = "/profilePictures/" + post.User.profilePic;
+		} else {
+			//fallback to the default image
+			profilePic.src = "profile.png"; 
+		}
+
 		profilePic.classList.add("profile-pic");
 		
 		const figcaption = document.createElement("figcaption");
@@ -74,6 +81,7 @@ function assemblePosts(container, posts) {
 			originalUser.classList.add("post-username");
 			originalUser.innerText = "@" + post.rebloggedFrom;
 
+			//go to reblogged from user profile when username clicked and make cursor a pointer to show it's clickable
 			originalUser.style.cursor = "pointer";
 			originalUser.onclick = () => { window.location.href = `profile.html?username=${post.rebloggedFrom}`;};
 			
@@ -129,7 +137,7 @@ function assemblePosts(container, posts) {
 		replyButton.innerText = "\uD83D\uDCAC " + post.replies.length;
 
 		replyButton.onclick = async function() {
-			//for simplicity, just prompt for reply content. in a real app, would want a nicer UI for this
+			//for simplicity, just prompt for reply content. Would be nice for a UI in real world.
 			const content = prompt("Enter your reply:");
 
 			if (!content || !content.trim()) {
@@ -217,7 +225,7 @@ function assemblePosts(container, posts) {
 				timeStamp.style.color = "black";
 				timeStamp.innerText = formatTimeStamp(reply.createdAt);
 
-				//go to user profile when username clicked and make cursor a pointer to show it's clickable
+				//go to reply user profile when username clicked and make cursor a pointer to show it's clickable
 				replyUser.style.cursor = "pointer";
 				replyUser.onclick = () => { window.location.href = `profile.html?username=${post.User.username}`;};
 
@@ -269,10 +277,12 @@ async function loadProfile() {
 
 	let username = null;
     const urlParams = new URLSearchParams(window.location.search);
+	const summaryProfilePic = document.getElementById("summary-profile-pic");
 
 	//if username in URL, load that user's posts. else, load posts for logged in user
 	if (urlParams.has("username")) {
 		username = urlParams.get("username");
+		
 	}
 	else {
 		const sessionResponse = await fetch("/api/session", { credentials: "include" });
@@ -283,20 +293,35 @@ async function loadProfile() {
 		const sessionData = await sessionResponse.json();
 		username = sessionData.user.username;
 	}
+	try {
+        const userResponse = await fetch(`/api/users/profile/${username}`);
+        if (userResponse.ok) {
+            const userData = await userResponse.json();
+            
+            // Update UI with data directly from the DB
+            if (summaryProfilePic) {
+                summaryProfilePic.src = userData.profilePic 
+                    ? "/profilePictures/" + userData.profilePic 
+                    : "profile.png";
+            }
 
-	//load username in title only on profile page
-	if (window.location.pathname === "/profile.html") {
-		document.title = "@" + username + " | MycoNet \u{1F344}";
-	}
+			//load username in title only on profile page
+			if (window.location.pathname === "/profile.html") {
+				document.title = "@" + username + " | MycoNet \u{1F344}";
+			}
 
-	//load summary username
-	if(summaryUsername) {
-		summaryUsername.innerText = "@" + username;
-	}
-	//load header username
-	if(headerUsername) {
-		headerUsername.innerText = "@" + username;
-	}
+			//load summary username
+			if(summaryUsername) {
+				summaryUsername.innerText = "@" + username;
+			}
+			//load header username
+			if(headerUsername) {
+				headerUsername.innerText = "@" + username;
+			}
+		}
+	} catch (err) {
+        console.error("Error fetching user profile:", err);
+    }
 
 	//load user posts
 	if(userPostFeed) {
@@ -307,7 +332,7 @@ async function loadProfile() {
 			return;
 		}
 
-		//call generic assemblePosts function to create posts for this user
+		//call assemblePosts function to create posts for this user
 		const posts = await response.json();
 		assemblePosts(userPostFeed, posts);
 	}
@@ -389,13 +414,16 @@ if (registerForm) {
 
 	try{
 		const location = await getLocation();
+
+		const formData = new FormData(event.target);
+
+		formData.append("locationLat", location.lat);
+		formData.append("locationLong", location.long);
 		
 		//POST to register endpoint
 		const response = await fetch("/api/register", {
 			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ username, email, password, location })
+			body: formData
 		});
 
 		const result = await response.json();
@@ -410,7 +438,7 @@ if (registerForm) {
 	}
 	catch(error) {
 		alert("Error: Location is required to register");
-		console.error("Error getting location:", error);
+		console.error("Error:", error);
 	}
 });
 }

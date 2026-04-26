@@ -1,3 +1,5 @@
+const multer = require('multer');
+const path = require('path');
 const { sequelize, User, Post, Reply, Like } = require("./models");
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -8,12 +10,21 @@ app.use(express.json());
 
 //enable sessions
 app.use(session({
-	secret: '', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT**
+	secret: 'myconet-secret', //**DO NOT PUSH TO GITHUB WITH THIS STRING PRESENT**
 	resave: false, //should session be saved again on every request 
 	saveUninitialized: false, //no session if no log in
 	cookie: { maxAge: 24 * 60 * 60 * 1000 } //cookie age
 }));
 
+//profile picture uploads folder
+const storage = multer.diskStorage({
+    destination: '/var/www/myconet-api/profilePictures',
+    filename: function(req, file, cb) {
+        cb(null, 'profile-' + Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
+app.use('/profilePictures', express.static('/var/www/myconet-api/profilePictures'));
 
 //-------------POST FUNCTIONS----------------
 
@@ -115,6 +126,7 @@ app.get("/api/posts", async (req, res) => {
             order: [["createdAt", "DESC"]] 	//most recent at top of page
         });
 
+        //filter nearby posts using Haversine Formula function
         const nearbyPosts = posts.filter(p => {
             if (!p.locationLat || !p.locationLong) return false;
 
@@ -134,7 +146,8 @@ app.get("/api/posts", async (req, res) => {
             content: p.content,
             createdAt: p.createdAt,
             User: {
-                username: p.User?.username
+                username: p.User?.username,
+                profilePic: p.User.profilePic
             },
 
             replies: p.Replies || [],
@@ -161,21 +174,21 @@ app.get("/api/users/:username/posts", async (req, res) => {
         const posts = await Post.findAll({
             include: [
                 { 
-                    model: User, 
+                    model: User,     //author
                     where: { username: req.params.username }
                 },
                 { 
-                    model: Reply, 
-                    include: [{ model: User }] 
+                    model: Reply,    //replies
+                    include: [{ model: User }] //so reply.User.username works
                 },
                 {
-                    model: User,
+                    model: User,     //likes
                     as: "Likers",
                     attributes: ["id"]
                 },
 				{				
                     model: Post,
-                    as: "Reblogs",	//reblogs
+                    as: "Reblogs",   //reblogs
                     attributes: ["id"]
                 },
                 {
@@ -193,7 +206,8 @@ app.get("/api/users/:username/posts", async (req, res) => {
             content: p.content,
             createdAt: p.createdAt,
             User: {
-                username: p.User?.username
+                username: p.User?.username,
+                profilePic: p.User.profilePic
             },
             replies: p.Replies || [],
             likes: p.Likers || [],
@@ -238,7 +252,7 @@ app.post("/api/posts/:id/like", async (req, res) => {
             await post.addLiker(user);
         }
 
-        //get the updated list using the alias in db
+        //get the updated list using the alias in db (length read in fetcher.js)
         const updatedLikes = await post.getLikers({ attributes: ['id'] });
 
         res.json({
@@ -344,7 +358,7 @@ app.post("/api/posts/:id/reblog", async (req, res) => {
             });
         }
 
-        //get the updated list of reblogs to send to frontend
+        //get the updated list of reblogs to send to frontend (length read in fetcher.js)
         const updatedReblogs = await Post.findAll({ 
             where: { rebloggedFromId: originalPost.id } 
         });
@@ -355,12 +369,30 @@ app.post("/api/posts/:id/reblog", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("REBLOG ERROR:", err);
+        console.error("Reblog error:", err);
         res.status(500).json({ message: "Server error" });
     }
 });
 
 //-------------USER FUNCTIONS----------------
+
+//get username and profile picture
+app.get('/api/users/profile/:username', async (req, res) => {
+    try {
+        const user = await User.findOne({
+            where: { username: req.params.username },
+            attributes: ['username', 'profilePic'] // ONLY send public info, NEVER the password
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 //get session info
 app.get("/api/session", async (req, res) => {
@@ -379,7 +411,8 @@ app.get("/api/session", async (req, res) => {
 		user: {
 			id: user.id,
 			username: user.username,
-			email: user.email
+			email: user.email,
+            profilePic: user.profilePic
 		}
 	});
 });
@@ -407,9 +440,13 @@ app.get("/index.html", (req, res) => {
 });
 
 //register
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", upload.single('profilePic'), async (req, res) => {
 
-	const { username, email, password, location } = req.body;
+	const { username, email, password, locationLat, locationLong } = req.body;
+
+    if (!username || !email || !password || !locationLat || !locationLong) {
+        return res.status(400).json({ message: "Missing a field." });
+    }
 
 	try {
 
@@ -427,25 +464,24 @@ app.post("/api/register", async (req, res) => {
 		//hash password
 		const hashedPassword = await bcrypt.hash(password, 10);
 
-		//location exists
-		if (!location?.lat || !location?.long) {
-			return res.status(400).json({ message: "Location required" });
-		}
+        //link uploaded file name to profilePictures folder
 
 		//create user in db
 		const user = await User.create({
 			username,
 			email,
 			password: hashedPassword,
-			locationLat: location.lat,
-			locationLong: location.long
+			locationLat: locationLat,
+			locationLong: locationLong,
+            profilePic: req.file ? req.file.filename : null
 		});
 
 		//store session
 		req.session.user = {
 			id: user.id,
 			username: user.username,
-			email: user.email
+			email: user.email,
+            profilePic: user.profilePic
 		};
 
 		res.json({
@@ -484,7 +520,8 @@ app.post("/api/login", async (req, res) => {
 		req.session.user = {
 			id: user.id,
 			username: user.username,
-			email: user.email
+			email: user.email,
+            profilePic: user.profilePic
 		};
 
 		res.json({
