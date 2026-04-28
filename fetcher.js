@@ -67,7 +67,7 @@ function assemblePosts(container, posts) {
 
 		//is reblog?
 		if (post.rebloggedFrom) {
-			const reblogInfo = document.createElement("div");
+			const reblogInfo = document.createElement("p");
 			reblogInfo.classList.add("reblog-info");
 
 			const timeStamp = document.createElement("small");
