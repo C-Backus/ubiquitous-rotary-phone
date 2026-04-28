@@ -381,7 +381,7 @@ app.get('/api/users/profile/:username', async (req, res) => {
     try {
         const user = await User.findOne({
             where: { username: req.params.username },
-            attributes: ['username', 'profilePic'] // ONLY send public info, NEVER the password
+            attributes: ['username', 'profilePic'] 
         });
 
         if (!user) {
@@ -463,8 +463,6 @@ app.post("/api/register", upload.single('profilePic'), async (req, res) => {
 
 		//hash password
 		const hashedPassword = await bcrypt.hash(password, 10);
-
-        //link uploaded file name to profilePictures folder
 
 		//create user in db
 		const user = await User.create({

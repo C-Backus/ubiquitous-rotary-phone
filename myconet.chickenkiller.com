@@ -15,6 +15,12 @@ server {
 		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 	}
 
+	location /profilePictures/ {
+		alias /var/www/myconet-api/profilePictures/;
+		expires 30d;
+		add_header Cache-Control "public, no-transform";
+	}
+
 	location = / {
 		proxy_pass ; 
 		proxy_set_header Host $host;
