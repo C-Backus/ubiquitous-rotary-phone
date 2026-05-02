@@ -61,4 +61,6 @@ Why? To share their thoughts and feelings in an interactive way. <i>You have to 
 
 <li>Polish look and feel</li>
 <i> Added database functionality. Added /models folder containing all datatype models used in database for organization.</i>
+
+<b>Sprint complete.</b></li>
 </ol>
