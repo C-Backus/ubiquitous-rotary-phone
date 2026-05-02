@@ -26,7 +26,7 @@ However, location based means that a user can only see & interact with posts fro
 <li>Each post contains
 		<ul>
 			<li>160 character limited text field</li>
-			<li>shows likes & location below</li>
+			<li>shows count of likes, replies, and reblogs below with corresponding buttons for interaction</li>
 			<li>replies below that</li>
 		</ul>
 </li>
