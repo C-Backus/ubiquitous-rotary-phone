@@ -298,7 +298,7 @@ async function loadProfile() {
         if (userResponse.ok) {
             const userData = await userResponse.json();
             
-            // Update UI with data directly from the DB
+            //get user profile pic from DB
             if (summaryProfilePic) {
                 summaryProfilePic.src = userData.profilePic 
                     ? "/profilePictures/" + userData.profilePic 
